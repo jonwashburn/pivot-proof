@@ -5,8 +5,8 @@ import rh.RS.CRGreenOuter
 import rh.RS.Cayley
 import rh.academic_framework.HalfPlaneOuter
 import rh.RS.PoissonPlateau
-import rh.rh.RS.TentShadow
-import rh.rh.RS.WhitneyGeometryDefs
+import rh.RS.TentShadow
+import rh.RS.WhitneyGeometryDefs
 import rh.academic_framework.CompletedXi
 import rh.Cert.KxiWhitney
 import rh.Cert.KxiPPlus
