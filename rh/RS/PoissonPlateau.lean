@@ -89,7 +89,7 @@ lemma psi_integral_one : ∫ t, psi t ∂(volume) = 1 := by
               simp [integral_indicator, hmeas]
     _   = (1 / (4 : ℝ)) * (volume (Icc (-2 : ℝ) 2)).toReal := by
               simp [integral_const, mul_comm]
-    _   = ((2 : ℝ) - (-2)) * (1 / (4 : ℝ)) := by
+    _   = (1 / (4 : ℝ)) * ((2 : ℝ) - (-2)) := by
               simp [Real.volume_Icc, sub_eq_add_neg]
     _   = 1 := by norm_num
 
@@ -125,7 +125,7 @@ theorem poisson_plateau_lower_bound
     have hR : x + b ≤ 2 := by
       -- since x ≤ 1 and b ≤ 1, we have x + b ≤ 2
       have : x + b ≤ (1 : ℝ) + 1 := add_le_add hxI.2 hb1
-      simpa using this
+      simpa [two_mul, one_mul] using this
     exact ⟨le_trans hL ht.1, le_trans ht.2 hR⟩
   -- Nonnegativity of the kernel
   have hnonneg : ∀ t, 0 ≤ poissonKernel b (x - t) :=
@@ -139,10 +139,9 @@ theorem poisson_plateau_lower_bound
       intro t; by_cases htJ : t ∈ Icc (x - b) (x + b)
       · have htS : t ∈ S := hJsubset htJ; simp [Set.indicator_of_mem htS, Set.indicator_of_mem htJ, le_rfl]
       · by_cases htS : t ∈ S
-        ·
-          have hf_nonneg : 0 ≤ Real.pi⁻¹ * (b / ((x - t) ^ 2 + b ^ 2)) := by
+        · have hf_nonneg : 0 ≤ Real.pi⁻¹ * (b / ((x - t) ^ 2 + b ^ 2)) := by
             simpa [poissonKernel, one_div, div_eq_mul_inv] using hnonneg t
-          simp [Set.indicator_of_mem htS, Set.indicator_of_not_mem htJ, hf_nonneg]
+          simp [Set.indicator_of_mem htS, Set.indicator_of_not_mem htJ, hf_nonneg, poissonKernel, one_div, div_eq_mul_inv]
         · simp [Set.indicator_of_not_mem htS, Set.indicator_of_not_mem htJ]
     have hintS : Integrable (S.indicator fun t => poissonKernel b (x - t)) := by
       -- continuity on compact interval ⇒ integrable
