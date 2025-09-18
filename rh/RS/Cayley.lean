@@ -2,6 +2,7 @@ import Mathlib.Data.Complex.Basic
 import rh.RS.SchurGlobalization
 import rh.RS.Det2Outer
 import rh.academic_framework.CompletedXi
+-- Do not import HalfPlaneOuter here to avoid cycles; use BoundaryAI for F_pinch if needed.
 
 /-!
 # Cayley interface for Θ := Cayley(2·J)
@@ -113,50 +114,55 @@ lemma boundary_abs_J_pinch_eq_one
   -- First, relate |O|·|ξ| = |det2|
   have hprod : Complex.abs (O (boundary t)) * Complex.abs (riemannXi_ext (boundary t))
       = Complex.abs (det2 (boundary t)) := by
-    -- multiply both sides of hOabs by |ξ|
+    -- From the identity (det2/ξ) * ξ = det2 (no field_simp)
     have hmul :
-        Complex.abs ((det2 (boundary t)) / (riemannXi_ext (boundary t)) * (riemannXi_ext (boundary t)))
+        (det2 (boundary t)) / (riemannXi_ext (boundary t)) * (riemannXi_ext (boundary t))
+          = det2 (boundary t) := by
+      have hXi0 : riemannXi_ext (boundary t) ≠ 0 := hXi
+      calc
+        (det2 (boundary t)) / (riemannXi_ext (boundary t)) * (riemannXi_ext (boundary t))
+            = det2 (boundary t)
+                * ((riemannXi_ext (boundary t))⁻¹ * (riemannXi_ext (boundary t))) := by
+                  simp [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
+        _   = det2 (boundary t) * 1 := by
+                  simpa using congrArg (fun r => det2 (boundary t) * r)
+                    (inv_mul_cancel₀ hXi0)
+        _   = det2 (boundary t) := by simp
+    -- take abs on both sides and rewrite LHS as a product
+    have hmul_abs := congrArg Complex.abs hmul
+    have : Complex.abs ((det2 (boundary t)) / (riemannXi_ext (boundary t)))
+            * Complex.abs (riemannXi_ext (boundary t))
           = Complex.abs (det2 (boundary t)) := by
-      -- algebraic identity (z / w) * w = z
-      have : (det2 (boundary t)) / (riemannXi_ext (boundary t)) * (riemannXi_ext (boundary t))
-            = det2 (boundary t) := by
-        field_simp [div_eq_mul_inv, hXi]
-      simpa [this]
-    have hmul_abs :
-        Complex.abs ((det2 (boundary t)) / (riemannXi_ext (boundary t)) * (riemannXi_ext (boundary t)))
-          = Complex.abs (det2 (boundary t) / riemannXi_ext (boundary t)) *
-            Complex.abs (riemannXi_ext (boundary t)) := by
-      simpa using (Complex.abs.mul
-        ((det2 (boundary t)) / (riemannXi_ext (boundary t))) (riemannXi_ext (boundary t)))
-    -- rewrite |O| using hOabs
-    have : Complex.abs (O (boundary t)) * Complex.abs (riemannXi_ext (boundary t))
-          = Complex.abs (det2 (boundary t) / riemannXi_ext (boundary t)) *
-            Complex.abs (riemannXi_ext (boundary t)) := by simpa [hOabs]
-    exact this.trans (hmul_abs.trans hmul)
+      simpa [Complex.abs.map_mul, div_eq_mul_inv] using hmul_abs
+    -- replace |det2/ξ| by |O| using hOabs
+    simpa [hOabs] using this
   -- Next, show |J| * (|O|·|ξ|) = |det2|
   have hden_ne : (O (boundary t)) * (riemannXi_ext (boundary t)) ≠ 0 := mul_ne_zero hO hXi
   have hJmul :
       Complex.abs (J_pinch det2 O (boundary t))
         * (Complex.abs (O (boundary t)) * Complex.abs (riemannXi_ext (boundary t)))
       = Complex.abs (det2 (boundary t)) := by
-    -- Use the algebraic identity det2 = J_pinch * (O*ξ)
-    have : J_pinch det2 O (boundary t) * (O (boundary t) * riemannXi_ext (boundary t))
-          = det2 (boundary t) := by
+    -- Abs of the product identity
+    have hId : J_pinch det2 O (boundary t) * (O (boundary t) * riemannXi_ext (boundary t))
+                = det2 (boundary t) := by
       simp [J_pinch, div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
-    have := congrArg Complex.abs this
-    simpa [Complex.abs.mul] using this
-  -- Denominator positivity
-  have hden_pos : 0 < Complex.abs (O (boundary t)) * Complex.abs (riemannXi_ext (boundary t)) := by
-    have h1 : 0 < Complex.abs (O (boundary t)) := Complex.abs.pos.mpr hO
-    have h2 : 0 < Complex.abs (riemannXi_ext (boundary t)) := Complex.abs.pos.mpr hXi
-    exact mul_pos h1 h2
+    have hAbs := congrArg Complex.abs hId
+    simpa using hAbs
+  -- Denominator nonzero (suffices for eq_div_iff_mul_eq)
+  have hden_pos_ne :
+      (Complex.abs (O (boundary t)) * Complex.abs (riemannXi_ext (boundary t))) ≠ 0 := by
+    have hOabs_ne : Complex.abs (O (boundary t)) ≠ 0 := by
+      simpa [Complex.abs.eq_zero] using hO
+    have hXiabs_ne : Complex.abs (riemannXi_ext (boundary t)) ≠ 0 := by
+      simpa [Complex.abs.eq_zero] using hXi
+    exact mul_ne_zero hOabs_ne hXiabs_ne
   -- Divide the equalities to conclude |J| = 1
-  have : Complex.abs (J_pinch det2 O (boundary t))
+  have hJ_eq : Complex.abs (J_pinch det2 O (boundary t))
       = Complex.abs (det2 (boundary t)) /
         (Complex.abs (O (boundary t)) * Complex.abs (riemannXi_ext (boundary t))) := by
-    exact (eq_div_iff_mul_eq hden_pos.ne').mpr hJmul
+    exact (eq_div_iff_mul_eq hden_pos_ne).mpr hJmul
   -- Replace numerator with denominator via hprod and simplify
-  simpa [this, hprod]
+  simpa [hJ_eq, hprod]
 
 /-- Boundary bound for the pinch field: on Re s = 1/2, under the boundary
 modulus equality and nonvanishing at that boundary point, we have
@@ -167,18 +173,20 @@ lemma boundary_Re_F_pinch_le_two
   (t : ℝ)
   (hO : O (boundary t) ≠ 0)
   (hXi : riemannXi_ext (boundary t) ≠ 0) :
-  |((F_pinch det2 O) (boundary t)).re| ≤ (2 : ℝ) := by
+  |(((fun z => (2 : ℂ) * J_pinch det2 O z) (boundary t)).re)| ≤ (2 : ℝ) := by
   classical
   -- |Re w| ≤ |w|
-  have h1 : |((F_pinch det2 O) (boundary t)).re| ≤ Complex.abs ((F_pinch det2 O) (boundary t)) := by
-    exact Complex.abs_re_le_abs _
-  -- |F_pinch| = |2·J_pinch| = 2·|J_pinch| = 2
+  have h1 : |(((fun z => (2 : ℂ) * J_pinch det2 O z) (boundary t)).re)|
+            ≤ Complex.abs (((fun z => (2 : ℂ) * J_pinch det2 O z) (boundary t))) :=
+    Complex.abs_re_le_abs _
+  -- |J_pinch| = 1 on the boundary
   have hJ : Complex.abs (J_pinch det2 O (boundary t)) = 1 :=
     boundary_abs_J_pinch_eq_one (O := O) hBME t hO hXi
-  have hF : Complex.abs ((F_pinch det2 O) (boundary t)) = 2 := by
-    simpa [F_pinch, hJ, Complex.abs.mul, Complex.abs.two, mul_one]
+  -- hence |2·J_pinch| = 2
+  have hF : Complex.abs (((fun z => (2 : ℂ) * J_pinch det2 O z)) (boundary t)) = 2 := by
+    simpa [hJ, mul_comm]
   -- conclude
-  simpa [hF]
+  simpa [hF] using h1
 /-- Analyticity of `J_pinch det2 O` on the off-zeros set `Ω \\ {ξ_ext = 0}`.
 
 Requires: `det2` analytic on `Ω`, `O` analytic and zero-free on `Ω`, and

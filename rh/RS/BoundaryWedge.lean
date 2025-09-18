@@ -44,11 +44,18 @@ lemma sum_shadowLen_le_of_indicator_bound
   {ι : Type*} (S : Finset ι) (Q : ι → Set (ℝ × ℝ)) (I : Set ℝ) (C : ℝ)
   (hmeasI : MeasurableSet I)
   (hmeasSh : ∀ i ∈ S, MeasurableSet (Whitney.shadow (Q i)))
-  (h_ae : ∀ᵐ t ∂(volume),
-            (∑ i in S, Set.indicator (Whitney.shadow (Q i)) (fun _ => (1 : ℝ)) t)
-              ≤ C * Set.indicator I (fun _ => (1 : ℝ)) t) :
-  (∑ i in S, Whitney.shadowLen (Q i)) ≤ C * Whitney.length I :=
-  Whitney.shadow_overlap_sum_of_indicator_bound S Q I C hmeasI hmeasSh h_ae
+  (hShSub : ∀ i ∈ S, Whitney.shadow (Q i) ⊆ I)
+  (h_ae_eq : (fun t => ∑ i in S, (Whitney.shadow (Q i)).indicator (fun _ => (1 : ℝ)) t)
+              =ᵐ[Measure.restrict volume I] (fun _ => C))
+  (hI_fin : volume I < ⊤) :
+  (∑ i in S, Whitney.shadowLen (Q i)) ≤ C * Whitney.length I := by
+  -- Delegate to the TentShadow lemma with the stronger hypotheses
+  simpa [Whitney.shadowLen, Whitney.length] using
+    (RH.RS.bounded_shadow_overlap_sum (S := S) (Q := Q) (I := I) (C := C)
+      (hmeasI := hmeasI)
+      (hmeasSh := by intro i hi; simpa using hmeasSh i hi)
+      (hShSub := by intro i hi; simpa using hShSub i hi)
+      (h_ae := h_ae_eq) (hI_fin := hI_fin))
 
 /-
 Combine: local Carleson on shadows plus an indicator overlap bound implies a
@@ -63,14 +70,15 @@ lemma sum_energy_from_carleson_and_indicator_overlap
   (hmeasSh : ∀ i ∈ S, MeasurableSet (Whitney.shadow (Q i)))
   (hCar_local : ∀ i ∈ S, E i ≤ Kξ * Whitney.shadowLen (Q i))
   (hKξ_nonneg : 0 ≤ Kξ) (hC_nonneg : 0 ≤ C)
-  (h_ae : ∀ᵐ t ∂(volume),
-            (∑ i in S, Set.indicator (Whitney.shadow (Q i)) (fun _ => (1 : ℝ)) t)
-              ≤ C * Set.indicator I (fun _ => (1 : ℝ)) t) :
+  (hShSub : ∀ i ∈ S, Whitney.shadow (Q i) ⊆ I)
+  (h_ae_eq : (fun t => ∑ i in S, (Whitney.shadow (Q i)).indicator (fun _ => (1 : ℝ)) t)
+              =ᵐ[Measure.restrict volume I] (fun _ => C))
+  (hI_fin : volume I < ⊤) :
   (∑ i in S, E i) ≤ Kξ * C * Whitney.length I := by
   classical
   -- From the indicator bound, get the sum of shadow lengths bound
   have hLen : (∑ i in S, Whitney.shadowLen (Q i)) ≤ C * Whitney.length I :=
-    sum_shadowLen_le_of_indicator_bound S Q I C hmeasI hmeasSh h_ae
+    sum_shadowLen_le_of_indicator_bound S Q I C hmeasI hmeasSh hShSub h_ae_eq hI_fin
   -- Apply the algebraic aggregation with ℓ := shadowLen(Q i)
   exact
     sum_energy_le_of_local_carleson_and_overlap
