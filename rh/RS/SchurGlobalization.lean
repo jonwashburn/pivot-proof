@@ -17,9 +17,6 @@ open Set Complex Filter
 
 namespace RH.RS
 
-/-- Right half-plane domain Ω = { s : ℂ | 1/2 < Re s }. -/
-def Ω : Set ℂ := { s : ℂ | (1 / 2 : ℝ) < s.re }
-
 /-- Ω is open. -/
 lemma isOpen_Ω : IsOpen Ω := by
   -- Ω = (Complex.re) ⁻¹' Ioi (1/2)

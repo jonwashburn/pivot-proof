@@ -4,7 +4,7 @@ import Mathlib.Tactic
 import Mathlib.Analysis.SpecialFunctions.Complex.Log
 import Mathlib.NumberTheory.LSeries.RiemannZeta
 import rh.academic_framework.ZetaFunctionalEquation
-import rh.RS.SchurGlobalization
+import rh.RS.Domain
 
 /-!
 Completed Riemann ξ function: archimedean factor `G` and `riemannXi = G · ζ`.

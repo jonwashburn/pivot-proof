@@ -26,7 +26,6 @@ lean_lib «rh» where
   globs := #[
     .submodules `rh.academic_framework,
     .submodules `rh.Cert,
-    .submodules `rh.Blockers,
     .submodules `rh.RS,
     .submodules `rh.Proof
   ]

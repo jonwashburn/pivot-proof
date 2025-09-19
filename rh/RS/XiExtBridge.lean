@@ -4,6 +4,7 @@ import Mathlib.Tactic
 import Mathlib.Topology.Defs.Filter
 import Mathlib.Analysis.Complex.RemovableSingularity
 import rh.academic_framework.CompletedXi
+import rh.RS.OffZerosBridge
 
 /-!
 # Xi_ext bridge: local removable packaging and ζ‑assignment via zeros equivalence
@@ -126,8 +127,9 @@ lemma assignXi_ext_from_pinned
       (fun z => (1 - u z) / (1 + u z)) := by
     -- direct: EqOn on U\{ρ} yields eventuallyEq on 𝓝[U\{ρ}] ρ
     simpa using Set.EqOn.eventuallyEq_nhdsWithin (s := (U \ {ρ})) hEq
-  have hΘ_lim1 : Filter.Tendsto Θ (nhdsWithin ρ (U \ {ρ})) (nhds (1 : ℂ)) :=
-    (RH.RS.Theta_pinned_limit_from_N2 (U := U \ {ρ}) (ρ := ρ) (Θ := Θ) (u := u) hEq_ev hu0)
+  have hΘ_lim1 : Filter.Tendsto Θ (nhdsWithin ρ (U \ {ρ})) (nhds (1 : ℂ)) := by
+    -- Use the u-trick pinned-limit from OffZerosBridge
+    simpa using (RH.RS.Theta_pinned_limit_from_N2 (U := U \ {ρ}) (ρ := ρ) (Θ := Θ) (u := u) hEq_ev hu0)
   -- Removable singularity at ρ: build analytic extension g on U with g ρ = 1 and EqOn on U \ {ρ}
   -- Use mathlib's removable theorem via the update construction and equality on the punctured set
   have hDiff : DifferentiableOn ℂ Θ (U \ {ρ}) := by
@@ -145,7 +147,7 @@ lemma assignXi_ext_from_pinned
   -- Analyticity of g on U from the removable singularity update lemma
   have hgU : AnalyticOn ℂ g U := by
     -- delegate to the centralized removable-update lemma in OffZerosBridge
-    exact RH.RS.analyticOn_update_from_pinned U ρ Θ u hUopen hρU hΘU hEq hu0
+    simpa using RH.RS.analyticOn_update_from_pinned U ρ Θ u hUopen hρU hΘU hEq hu0
   have hval : g ρ = 1 := by simp [g]
   -- Nontriviality passes to g at a witness point z ∈ U
   rcases hWitness with ⟨z, hzU, hzneq, hΘz⟩

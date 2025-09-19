@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the project LICENSE file.
 -/
 import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 import Mathlib.MeasureTheory.Integral.SetIntegral
-import Mathlib.Analysis.Convex.Basic
+import Mathlib.Topology.Instances.Real
 
 /-!
 # Whitney Geometry Definitions for Half-Plane
@@ -17,7 +17,6 @@ in the upper half-plane, used throughout the RS proof machinery.
 * `RS.Whitney.tent` - The Carleson box T(I) = I × (0, α|I|] over interval I
 * `RS.Whitney.shadow` - The boundary projection/base interval of a Whitney box
 * `RS.Whitney.fixed_geometry` - Predicate for boxes with controlled aspect ratio
-* `RS.boxEnergy` - The weighted energy ∬_Q |∇U|² σ dt dσ
 
 ## Implementation notes
 
@@ -27,7 +26,7 @@ Whitney boxes have comparable height and width (fixed eccentricity).
 
 noncomputable section
 open Classical MeasureTheory
-open scoped BigOperators MeasureTheory
+open scoped MeasureTheory
 
 namespace RH
 namespace RS
@@ -78,13 +77,7 @@ structure fixed_geometry (Q : Set (ℝ × ℝ)) where
 def in_tent_over (I : Set ℝ) (Q : Set (ℝ × ℝ)) : Prop :=
   shadow Q ⊆ I
 
-/-- The box energy measure μ(Q) = ∬_Q |∇U|² σ dt dσ -/
-def boxEnergy (gradU : (ℝ × ℝ) → ℝ × ℝ) (σ : Measure (ℝ × ℝ)) (Q : Set (ℝ × ℝ)) : ℝ :=
-  (∫⁻ p in Q, ENNReal.ofReal (‖gradU p‖^2 * p.2) ∂σ).toReal
-
-/-- The tent energy over interval I -/
-def tentEnergy (gradU : (ℝ × ℝ) → ℝ × ℝ) (σ : Measure (ℝ × ℝ)) (I : Set ℝ) : ℝ :=
-  boxEnergy gradU σ (tent I)
+/-! This file is geometry‑only. Energy helpers live in `RS.TentShadow`. -/
 
 /-- Fixed overlap constant for Whitney shadow packing -/
 def shadowOverlapConst : ℝ := 10
@@ -116,28 +109,7 @@ lemma tent_mono
   have hlen : length I ≤ length J := length_mono (hIJ := hIJ) (hJfin := hJfin)
   exact mul_le_mul_of_nonneg_left hlen hα
 
-/-- Monotonicity of box energy under set inclusion (assuming finiteness on the larger set). -/
-lemma boxEnergy_mono {gradU : (ℝ × ℝ) → ℝ × ℝ} {σ : Measure (ℝ × ℝ)}
-    {P Q : Set (ℝ × ℝ)} (h : P ⊆ Q)
-    (hPmeas : MeasurableSet P) (hQmeas : MeasurableSet Q)
-    (hfinQ : (∫⁻ p in Q, ENNReal.ofReal (‖gradU p‖^2 * p.2) ∂σ) < ⊤) :
-    boxEnergy gradU σ P ≤ boxEnergy gradU σ Q := by
-  -- Work at the level of lintegrals with nonnegative integrand and then apply toReal_le_toReal
-  unfold boxEnergy
-  -- Monotonicity via indicator functions and lintegral_mono
-  have hmono :
-      (∫⁻ p in P, ENNReal.ofReal (‖gradU p‖^2 * p.2) ∂σ)
-        ≤ (∫⁻ p in Q, ENNReal.ofReal (‖gradU p‖^2 * p.2) ∂σ) := by
-    exact Measure.lintegral_mono_set (μ := σ) hPmeas hQmeas h
-  -- Finiteness of both sides
-  have hIQfin :
-      (∫⁻ p in Q, ENNReal.ofReal (‖gradU p‖^2 * p.2) ∂σ) ≠ ⊤ := by
-    simpa [lt_top_iff_ne_top] using hfinQ
-  have hIPfin :
-      (∫⁻ p in P, ENNReal.ofReal (‖gradU p‖^2 * p.2) ∂σ) ≠ ⊤ := by
-    exact ne_of_lt (lt_of_le_of_lt hmono (by simpa using hfinQ))
-  -- Apply toReal_le_toReal
-  exact (ENNReal.toReal_le_toReal (ha := hIPfin) (hb := hIQfin)).2 hmono
+-- (no energy monotonicity here)
 
 /-- The tent set `tent I α` is measurable. -/
 lemma measurableSet_tent {I : Set ℝ} {α : ℝ} (hI : MeasurableSet I) :
@@ -163,102 +135,9 @@ lemma measurableSet_tent {I : Set ℝ} {α : ℝ} (hI : MeasurableSet I) :
     · intro hp; rcases hp with ⟨⟨hpI, hp0⟩, hpU⟩; exact ⟨by simpa using hpI, by simpa using hp0, by simpa using hpU⟩
   simpa [this] using (h1.inter h2).inter h3
 
-/-- On a tent, the weighted lintegral of `‖∇U‖²·σ` is finite if `‖∇U‖²` is L² on the tent. -/
-lemma finite_lintegral_on_tent_of_L2
-  (gradU : (ℝ × ℝ) → ℝ × ℝ) (I : Set ℝ) (α : ℝ)
-  (hI : MeasurableSet I)
-  (hL2 : IntegrableOn (fun p => ‖gradU p‖^2) (tent I α) volume) :
-  (∫⁻ p in tent I α, ENNReal.ofReal (‖gradU p‖^2 * p.2)) < ⊤ := by
-  -- On tents, 0 < p.2 ≤ α * length I, so p.2 is essentially bounded by a constant C.
-  -- Hence ofReal (‖gradU‖^2 * p.2) ≤ ENNReal.ofReal C * ofReal (‖gradU‖^2),
-  -- and finiteness follows from the L² bound of ‖gradU‖.
-  have hTent : MeasurableSet (tent I α) := measurableSet_tent (hI := hI)
-  set C : ℝ := max (α * length I) 0
-  have hCnonneg : 0 ≤ C := le_max_right _ _
-  -- a.e. bound σ ≤ C on the tent
-  have hBound_base : ∀ᵐ p ∂volume, p ∈ tent I α → p.2 ≤ C := by
-    refine Filter.Eventually.of_forall ?_
-    intro p hp
-    have hpU : p.2 ≤ α * length I := by simpa [tent, Set.mem_setOf_eq] using hp.2.2
-    exact le_trans hpU (le_max_left _ _)
-  -- measurability of the predicate {p | p.2 ≤ C}
-  have hPred : MeasurableSet {p : (ℝ × ℝ) | p.2 ≤ C} := by
-    have hc : IsClosed ((fun p : ℝ × ℝ => p.2) ⁻¹' Set.Iic C) :=
-      isClosed_Iic.preimage continuous_snd
-    simpa [Set.preimage, Set.mem_setOf_eq] using hc.measurableSet
-  have hBound_ae : ∀ᵐ p ∂(Measure.restrict volume (tent I α)), p.2 ≤ C := by
-    -- Convert AE statement on volume to AE on the restricted measure
-    simpa [ae_restrict_iff, hTent] using hBound_base
-  -- Pointwise a.e. bound for the integrand on the tent
-  have hpoint_ae :
-      (∀ᵐ p ∂(Measure.restrict volume (tent I α)),
-        ENNReal.ofReal (‖gradU p‖^2 * p.2)
-          ≤ ENNReal.ofReal (‖gradU p‖^2 * C)) := by
-    refine hBound_ae.mono ?_
-    intro p hpC
-    have hmul : ‖gradU p‖^2 * p.2 ≤ ‖gradU p‖^2 * C :=
-      mul_le_mul_of_nonneg_left hpC (by exact sq_nonneg _)
-    exact ENNReal.ofReal_le_ofReal hmul
-  -- Integrate both sides over the tent (restricted measure)
-  have hlin₁ :
-      (∫⁻ p in tent I α, ENNReal.ofReal (‖gradU p‖^2 * p.2))
-        ≤ (∫⁻ p in tent I α, ENNReal.ofReal (‖gradU p‖^2 * C)) :=
-    lintegral_mono_ae hpoint_ae
-  have hconst_eq :
-      (∫⁻ p in tent I α, ENNReal.ofReal (‖gradU p‖^2 * C))
-        = ENNReal.ofReal C * (∫⁻ p in tent I α, ENNReal.ofReal (‖gradU p‖^2)) := by
-    have hpt :
-        (fun p => ENNReal.ofReal (‖gradU p‖^2 * C))
-          = fun p => ENNReal.ofReal C * ENNReal.ofReal (‖gradU p‖^2) := by
-      funext p
-      have : 0 ≤ ‖gradU p‖^2 := sq_nonneg _
-      simpa [mul_comm, mul_left_comm, mul_assoc] using
-        (ENNReal.ofReal_mul this hCnonneg)
-    -- pull out the constant across the lintegral
-    have :
-        (∫⁻ p in tent I α, (fun _ => ENNReal.ofReal C) * ENNReal.ofReal (‖gradU p‖^2))
-          = ENNReal.ofReal C * (∫⁻ p in tent I α, ENNReal.ofReal (‖gradU p‖^2)) := by
-      -- constant factor can be pulled out of lintegral on a measurable set
-      simp [Measure.restrict_apply, hTent]
-    simpa [hpt] using this
-  have hlin :
-      (∫⁻ p in tent I α, ENNReal.ofReal (‖gradU p‖^2 * p.2))
-        ≤ ENNReal.ofReal C * (∫⁻ p in tent I α, ENNReal.ofReal (‖gradU p‖^2)) := by
-    simpa [hconst_eq] using hlin₁
-  -- Use L²-integrability to conclude finiteness of the RHS
-  have hfin_sq : (∫⁻ p in tent I α, ENNReal.ofReal (‖gradU p‖^2)) < ⊤ := by
-    -- Standard: IntegrableOn f ⇒ lintegral (ofReal |f|) < ∞
-    have hInt := hL2.hasFiniteIntegral
-    simpa [Measure.restrict_apply, hTent, Real.norm_eq_abs, abs_of_nonneg (sq_nonneg _)] using hInt
-  -- conclude finiteness by showing the product bound is < ⊤ via `mul_ne_top`
-  have hCne : ENNReal.ofReal C ≠ ⊤ := by simp
-  have hIne : (∫⁻ p in tent I α, ENNReal.ofReal (‖gradU p‖^2)) ≠ ⊤ := ne_of_lt hfin_sq
-  have hprod_ne_top :
-      ENNReal.ofReal C * (∫⁻ p in tent I α, ENNReal.ofReal (‖gradU p‖^2)) ≠ ⊤ :=
-    ENNReal.mul_ne_top hCne hIne
-  have hprod_lt_top :
-      ENNReal.ofReal C * (∫⁻ p in tent I α, ENNReal.ofReal (‖gradU p‖^2)) < ⊤ :=
-    (lt_top_iff_ne_top).2 hprod_ne_top
-  exact lt_of_le_of_lt hlin hprod_lt_top
+-- (no tent finiteness lemma)
 
-/-- Monotonicity of box energy on tents when the base intervals are nested. -/
-lemma boxEnergy_mono_tent
-  (gradU : (ℝ × ℝ) → ℝ × ℝ) (I J : Set ℝ) (α : ℝ)
-  (hIJ : I ⊆ J) (hI : MeasurableSet I) (hJ : MeasurableSet J)
-  (hα : 0 ≤ α) (hJfin : volume J ≠ ⊤)
-  (hL2 : IntegrableOn (fun p => ‖gradU p‖^2) (tent J α) volume) :
-  boxEnergy gradU volume (tent I α) ≤ boxEnergy gradU volume (tent J α) := by
-  -- Reduce to the general monotonicity using tent_mono and discharge finiteness via finite_lintegral_on_tent_of_L2
-  have hsubset : tent I α ⊆ tent J α :=
-    tent_mono (hIJ := hIJ) (α := α) (hα := hα) (hJfin := hJfin)
-  -- Use the general lemma; provide measurability and finiteness to close admits
-  have hTentJ_meas : MeasurableSet (tent J α) := measurableSet_tent (hI := hJ)
-  have hfin : (∫⁻ p in tent J α, ENNReal.ofReal (‖gradU p‖^2 * p.2)) < ⊤ :=
-    finite_lintegral_on_tent_of_L2 (gradU := gradU) (I := J) (α := α) (hI := hJ)
-      (by simpa using hL2)
-  -- Apply the strengthened monotonicity with measurability and finiteness
-  exact boxEnergy_mono (gradU := gradU) (σ := volume) (P := tent I α) (Q := tent J α)
-    hsubset (measurableSet_tent (hI := hI)) hTentJ_meas hfin
+-- (energy monotonicity moved to `RS.TentShadow`)
 
 /-- Points in a fixed-geometry box have positive height `p.2 > 0`. -/
 lemma fixed_geometry_upper {Q : Set (ℝ × ℝ)} (h : fixed_geometry Q) :
@@ -385,12 +264,13 @@ lemma length_abs_lt (c r : ℝ) (hr : 0 < r) :
   have hvol : volume (Set.Ioo (c - r) (c + r))
       = ENNReal.ofReal ((c + r) - (c - r)) := by
     simpa [Real.volume_Ioo, (le_of_lt hlt)]
+  have hr0 : 0 ≤ r := by exact le_of_lt hr
   have htoReal : (volume (Set.Ioo (c - r) (c + r))).toReal
       = (c + r) - (c - r) := by
-    have hnonneg : 0 ≤ (c + r) - (c - r) := by linarith [le_of_lt hr]
+    have hnonneg : 0 ≤ (c + r) - (c - r) := by nlinarith [hr0]
     simpa [hvol, ENNReal.toReal_ofReal, hnonneg]
   have hring : (c + r) - (c - r) = 2 * r := by ring
-  have hr0 : 0 ≤ r := le_of_lt hr
+  -- already have hr0 : 0 ≤ r
   -- Put everything together
   simp [length, hset, htoReal, hring, hr0]
 
@@ -454,12 +334,9 @@ theorem shadow_overlap_bound_pass
   (h : (∑ i in S, shadowLen (Q i)) ≤ shadowOverlapConst * length I) :
   (∑ i in S, shadowLen (Q i)) ≤ shadowOverlapConst * length I := h
 
-end Whitney
+-- (overlap/packing inequality is provided in `RS.TentShadow`)
 
--- Make boxEnergy available at RS level
-def boxEnergy := Whitney.boxEnergy
-def tentEnergy := Whitney.tentEnergy
-def length := Whitney.length
+end Whitney
 
 end RS
 end RH
